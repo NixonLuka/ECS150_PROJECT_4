@@ -7,6 +7,7 @@
 #include "disk.h"
 #include "fs.h"
 
+#define FAT_EOC 0xFFFF
 /* TODO: Phase 1 */
 //Data structures to be used:
 
@@ -37,7 +38,7 @@ struct __attribute__ ((packed)) root_entry{
 //globals
 static struct superBlock* SB;
 static struct FS_FAT* FAT;
-static struct root_entry ROOT_DIR[FS_FILE_MAX_COUNT];
+static struct root_entry* ROOT_DIR;
 
 int fs_mount(const char *diskname)
 {
@@ -72,7 +73,7 @@ int fs_mount(const char *diskname)
 		block_read(i, (void*)(FAT->entries[i-1]));
 		
 	//create root directory
-	
+	ROOT_DIR = malloc(FS_FILE_MAX_COUNT);
 	block_read(SB->root_index, (void*)ROOT_DIR);
 
 	
@@ -98,6 +99,9 @@ int fs_umount(void)
 	for(i = 0; i < SB->num_blocks; i++)
 		block_write(SB->data_index[i],
 	*/
+
+	free(SB);
+	free(FAT);
 	return 0;
 	
 }
@@ -131,13 +135,61 @@ int fs_info(void)
 }
 
 int fs_create(const char *filename)
-{
+{	
+	int i;
+	if(sizeof(filename) > FS_FILENAME_LEN)
+		return -1;
+	
+	if(filename[sizeof(filename) - 1] != '\0')
+		return -1;
+	
+	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
+		if((char*)ROOT_DIR[i].file_name == filename)
+			return -1;
+	}
+	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
+		if(*ROOT_DIR[i].file_name == '\0')
+			break;
+		else
+			return -1;
+	}
+	memcpy(ROOT_DIR[i].file_name, filename, FS_FILENAME_LEN);
+	ROOT_DIR[i].file_size = 0;
+	ROOT_DIR[i].first_block = FAT_EOC;
+
+	return 0;
+
 	/* TODO: Phase 2 */
 }
 
 int fs_delete(const char *filename)
 {
-	/* TODO: Phase 2 */
+	if(sizeof(filename) > FS_FILENAME_LEN)
+		return -1;
+	if(filename[sizeof(filename) - 1] != '\0')
+		return -1;
+	//check if file is open? if so fail/
+	//
+	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
+		if(*ROOT_DIR[i].file_name == filename)
+			break;
+		else
+			return -1;
+	}
+	memcpy(ROOT_DIR[i].file_name, 0, FS_FILENAME_LEN);
+	ROOT_DIR[i].file_size = 0;
+	//delete chain from fat
+	uint16_t current = ROOT_DIR[i].first_block;
+	int first,second;
+	while (current != FAT_EOC){
+		///get the exact index of current chain in FAT
+		first = current / BLOCK_SIZE;
+		second = current % BLOCK_SIZE;
+		current = FAT->entries[first][second];
+		FAT->entires[first][second] = 0;
+	}
+	return 0;
+
 }
 
 int fs_ls(void)
