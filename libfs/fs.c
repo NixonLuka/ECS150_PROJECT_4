@@ -32,7 +32,7 @@ struct __attribute__ ((packed)) root_entry{
 	uint8_t file_name[FS_FILENAME_LEN];
 	uint32_t file_size;
 	uint16_t first_block;
-
+	uint8_t padding[10];
 };
 
 //globals
@@ -143,15 +143,15 @@ int fs_create(const char *filename)
 		return -1;
 	*/
 	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
-		if((char*)ROOT_DIR[i].file_name == filename)
+		if(!strcmp((char*)ROOT_DIR[i].file_name, filename))
 			return -1;
 	}
 	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
 		if(*ROOT_DIR[i].file_name == '\0')
 			break;
-		else
-			return -1;
 	}
+	if(i == FS_FILE_MAX_COUNT)
+                return -1;
 	memcpy(ROOT_DIR[i].file_name, filename, FS_FILENAME_LEN);
 	ROOT_DIR[i].file_size = 0;
 	ROOT_DIR[i].first_block = FAT_EOC;
@@ -200,8 +200,21 @@ int fs_delete(const char *filename)
 }
 
 int fs_ls(void)
-{
-	/* TODO: Phase 2 */
+{	
+	if(SB == NULL)
+		return -1;	
+	int i;
+	printf("FS Ls:\n");
+	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
+		if(*ROOT_DIR[i].file_name == '\0')
+			continue;
+		else{
+			struct root_entry current = ROOT_DIR[i];
+			printf("file: %s, size: %d, data_blk: %d\n",
+				(char*)current.file_name, current.file_size, current.first_block);
+		}
+	}
+	return 0;
 }
 
 int fs_open(const char *filename)
