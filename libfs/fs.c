@@ -38,7 +38,7 @@ struct __attribute__ ((packed)) root_entry{
 //globals
 static struct superBlock* SB;
 static struct FS_FAT* FAT;
-static struct root_entry* ROOT_DIR;
+static struct root_entry ROOT_DIR[FS_FILE_MAX_COUNT];
 
 int fs_mount(const char *diskname)
 {
@@ -73,7 +73,6 @@ int fs_mount(const char *diskname)
 		block_read(i, (void*)(FAT->entries[i-1]));
 		
 	//create root directory
-	ROOT_DIR = malloc(FS_FILE_MAX_COUNT);
 	block_read(SB->root_index, (void*)ROOT_DIR);
 
 	
@@ -139,10 +138,10 @@ int fs_create(const char *filename)
 	int i;
 	if(sizeof(filename) > FS_FILENAME_LEN)
 		return -1;
-	
-	if(filename[sizeof(filename) - 1] != '\0')
+	/*should check last character of string is null terminiated, this doesnt work	
+	if(filename[strlen(filename) + 1] != '\0')
 		return -1;
-	
+	*/
 	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
 		if((char*)ROOT_DIR[i].file_name == filename)
 			return -1;
@@ -164,19 +163,24 @@ int fs_create(const char *filename)
 
 int fs_delete(const char *filename)
 {
+	int i;
 	if(sizeof(filename) > FS_FILENAME_LEN)
 		return -1;
+
+	/*same problem as create:
 	if(filename[sizeof(filename) - 1] != '\0')
 		return -1;
+	*/
 	//check if file is open? if so fail/
 	//
+
 	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
-		if(*ROOT_DIR[i].file_name == filename)
+		if(!strcmp((char*)ROOT_DIR[i].file_name, filename))
 			break;
-		else
-			return -1;
 	}
-	memcpy(ROOT_DIR[i].file_name, 0, FS_FILENAME_LEN);
+	if(i == FS_FILE_MAX_COUNT)
+		return -1;
+	memset(ROOT_DIR[i].file_name, 0, FS_FILENAME_LEN);
 	ROOT_DIR[i].file_size = 0;
 	//delete chain from fat
 	uint16_t current = ROOT_DIR[i].first_block;
@@ -186,8 +190,11 @@ int fs_delete(const char *filename)
 		first = current / BLOCK_SIZE;
 		second = current % BLOCK_SIZE;
 		current = FAT->entries[first][second];
-		FAT->entires[first][second] = 0;
+		//need to free data block associated with this fat entry as well
+		FAT->entries[first][second] = 0;
 	}
+
+	ROOT_DIR[i].first_block = 0;
 	return 0;
 
 }
