@@ -52,6 +52,13 @@ int fs_mount(const char *diskname)
 	block_read(0, buffer);
 	SB = buffer;
 
+	if(memcmp(SB->signature, "ECS150FS", 8)){
+		return -1;
+	}
+	if(SB->disk_size !=  block_disk_count()){
+		return -1;
+	}
+
 	//create FAT
 	
 	FAT = malloc(sizeof(struct FS_FAT));
@@ -74,9 +81,25 @@ int fs_mount(const char *diskname)
 
 int fs_umount(void)
 {
-	//write back to virtual disk
 	
-	/* TODO: Phase 1 */
+	//write back to virtual disk
+	int i;
+	block_write(0, SB);
+	//probably need to change this when i figure out whats wrong with FAT mounting
+	for(i = 1; i <= SB->FAT_size; i++){
+		block_write(i, (void*)(FAT->entries[i-1]));
+	}
+	
+
+	//This is considered a bad address to write?
+	block_write(SB->root_index, (void*)ROOT_DIR);
+	// write back data blocks
+	/*
+	for(i = 0; i < SB->num_blocks; i++)
+		block_write(SB->data_index[i],
+	*/
+	return 0;
+	
 }
 
 int fs_info(void)
@@ -90,9 +113,11 @@ int fs_info(void)
 	printf("data_blk_count=%d\n", SB->num_blocks);
 	int free = 0;
 	int i;
-	for(i = 0; i < FAT->num_entries; i++){
-		if(FAT->entries[i] == 0)
-			free++;
+	for(int j = 0; j < SB->FAT_size; j++){
+		for(i = 0; i < 2048; i++){
+			if(FAT->entries[j][i] == 0)
+				free++;
+		}
 	}
 	printf("fat_free_ratio=%d/%d\n", free, FAT->num_entries);
 	free = 0;
