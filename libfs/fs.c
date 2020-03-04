@@ -231,108 +231,108 @@ int fs_ls(void)
 
 int fs_open(const char *filename)
 {
-	if (filename == NULL)
-		return -1;
+    if (filename == NULL)
+        return -1;
 
-	int root;
-	bool rootFound = false;
-	for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
-		if (!strcmp(ROOT_DIR[i].file_name, filename)) {
-			root = i;
-			rootFound = true;
-			break;
-		}
-	}
-	if (!rootFound || numFilesopen >= FS_OPEN_MAX_COUNT)
-		return -1;
-	
-	struct File_Desc file;
-	// Initalize file_descriptor
-	strcpy(file.file_name, filename);
-	file.file_size = ROOT_DIR[root].file_size;
-	file.fd = currentFD;
-	file.offset = 0;
+    int root;
+    int rootFound = NULL;
+    for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
+        if (!strcmp((char*)ROOT_DIR[i].file_name, filename)) {  // will char* cast work?
+            root = i;
+            rootFound = 1;
+            break;
+        }
+    }
+    if (!rootFound || numFilesOpen >= FS_OPEN_MAX_COUNT)
+        return -1;
 
-	// Update open globals
-	numFilesOpen++;
-	currentFD++;
-	openFiles[numFilesOpen] = file;
+    struct File_Desc file;
+    // Initalize file_descriptor
+    strcpy(file.file_name, filename);
+    file.file_size = ROOT_DIR[root].file_size;
+    file.fd = currentFD;
+    file.offset = 0;
 
-	return file.fd;
-	/* TODO: Phase 3 */
+    // Update open globals
+    numFilesOpen++;
+    currentFD++;
+    openFiles[numFilesOpen] = file;
+
+    return file.fd;
+    /* TODO: Phase 3 */
 }
 
 int fs_close(int fd)
 {
-	if (fd < 0 || fd >= FS_OPEN_MAX_COUNT)
-		return -1;
+    if (fd < 0 || fd >= FS_OPEN_MAX_COUNT)
+        return -1;
 
-	int index;
-	bool indexFound = false;
-	for (int i = 0; i < numFilesOpen; i++) {
-		if (openFiles[i].fd == fd) {
-			index = i;
-			indexFound = true;
-			break;
-		}
-	}
-	if (!indexFound)
-		return -1;
+    int index;
+    int indexFound = NULL;
+    for (int i = 0; i < numFilesOpen; i++) {
+        if (openFiles[i].fd == fd) {
+            index = i;
+            indexFound = 1;
+            break;
+        }
+    }
+    if (!indexFound)
+        return -1;
 
-	// Move all open files by 1 instead of equating elements to NULL - to avoid nullptr exceptions & reaches
-	for (int i = index; i < (numFilesOpen - 1); i++) {
-		openFiles[i] = openFiles[i + 1];  		// FIXME - check for overflow errors
-	}
-	numFilesOpen--;
+    // Move all open files by 1 instead of equating elements to NULL - to avoid nullptr exceptions & reaches
+    for (int i = index; i < (numFilesOpen - 1); i++) {
+        openFiles[i] = openFiles[i + 1];  		// FIXME - check for overflow errors
+    }
+    numFilesOpen--;
 
-	return 0;
-	/* TODO: Phase 3 */
+    return 0;
+    /* TODO: Phase 3 */
 }
 
 int fs_stat(int fd)
 {
-	if (fd < 0)
-		return -1;
-	
-	int index;
-	bool indexFound = false;
-	for (int i = 0; i < numFilesOpen; i++) {
-		if (openFiles[i].fd == fd) {
-			index = i;
-			indexFound = true;
-			break;
-		}
-	}
+    if (fd < 0)
+        return -1;
 
-	if (!indexFound) {
-		return -1;
-	} else { 
-		return openFiles[index].file_size;
-	}
-	/* TODO: Phase 3 */
+    int index = 0;
+    int indexFound = NULL;
+    for (int i = 0; i < numFilesOpen; i++) {
+        if (openFiles[i].fd == fd) {
+            index = i;
+            indexFound = 1;
+            break;
+        }
+    }
+
+    if (!indexFound) {
+        return -1;
+    } else {
+        return openFiles[index].file_size;
+    }
+    /* TODO: Phase 3 */
 }
 
 int fs_lseek(int fd, size_t offset)
 {
-	if (fd < 0)
-		return -1;
+    if (fd < 0)
+        return -1;
 
-	int index;
-	bool indexFound = false;
-	for (int i = 0; i < numFilesopen; i++) {
-		if (openFiles[i].fd == fd) {
-			index = i;
-			indexFound = true;
-			break;
-		}
-	}
-	if (!indexFound || offset > openFiles[index].file_size)
-		return -1;
+    int index = 0;
+    int indexFound = NULL;
+    for (int i = 0; i < numFilesOpen; i++) {
+        if (openFiles[i].fd == fd) {
+            index = i;
+            indexFound = 1;
+            break;
+        }
+    }
+    if (!indexFound || offset > openFiles[index].file_size)
+        return -1;
 
-	openFiles[index].offset = offset;
-	
-	return 0;
-	/* TODO: Phase 3 */
+    openFiles[index].offset = offset;
+
+    return 0;
+    /* TODO: Phase 3 */
 }
 
 int fs_write(int fd, void *buf, size_t count)
