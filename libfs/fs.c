@@ -235,7 +235,7 @@ int fs_open(const char *filename)
         return -1;
 
     int root;
-    int rootFound = NULL;
+    int rootFound = 0;
     for (int i = 0; i < FS_FILE_MAX_COUNT; i++) {
         if (!strcmp((char*)ROOT_DIR[i].file_name, filename)) {  // will char* cast work?
             root = i;
@@ -268,7 +268,7 @@ int fs_close(int fd)
         return -1;
 
     int index;
-    int indexFound = NULL;
+    int indexFound = 0;
     for (int i = 0; i < numFilesOpen; i++) {
         if (openFiles[i].fd == fd) {
             index = i;
@@ -295,7 +295,7 @@ int fs_stat(int fd)
         return -1;
 
     int index = 0;
-    int indexFound = NULL;
+    int indexFound = 0;
     for (int i = 0; i < numFilesOpen; i++) {
         if (openFiles[i].fd == fd) {
             index = i;
@@ -318,7 +318,7 @@ int fs_lseek(int fd, size_t offset)
         return -1;
 
     int index = 0;
-    int indexFound = NULL;
+    int indexFound = 0;
     for (int i = 0; i < numFilesOpen; i++) {
         if (openFiles[i].fd == fd) {
             index = i;
