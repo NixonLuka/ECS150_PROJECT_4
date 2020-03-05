@@ -36,7 +36,7 @@ struct __attribute__ ((packed)) root_entry{
 };
 
 struct __attribute__((__packed__)) File_Desc {
-	char file_name[FS_FILENAME_LEN];
+	uint8_t file_name[FS_FILENAME_LEN];
 	uint32_t file_size;
 	int32_t fd;
 	uint32_t offset;
@@ -87,7 +87,10 @@ int fs_mount(const char *diskname)
 	//create root directory
 	block_read(SB->root_index, (void*)ROOT_DIR);
 
-	
+	//ensures openFiles array has FD's that wont accidentally be accessed since they are 0
+	for(i = 0; i < FS_OPEN_MAX_COUNT; i++){
+		openFiles[i].fd = -1;
+	}	
 	return 0;
 }
 
@@ -248,16 +251,14 @@ int fs_open(const char *filename)
 
     struct File_Desc file;
     // Initalize file_descriptor
-    strcpy(file.file_name, filename);
+    memcpy((void*)file.file_name, (void*)filename, FS_FILENAME_LEN);
     file.file_size = ROOT_DIR[root].file_size;
     file.fd = currentFD;
     file.offset = 0;
-
+    openFiles[numFilesOpen] = file;
     // Update open globals
     numFilesOpen++;
     currentFD++;
-    openFiles[numFilesOpen] = file;
-
     return file.fd;
     /* TODO: Phase 3 */
 }
