@@ -51,7 +51,8 @@ static struct root_entry ROOT_DIR[FS_FILE_MAX_COUNT];
 struct File_Desc openFiles[FS_OPEN_MAX_COUNT];  // FIXME - SHOULD THIS BE STATIC?
 int numFilesOpen = 0;
 int currentFD = 0;
-
+uint16_t data_block_index(char*, int);
+uint16_t next_block(uint16_t);
 int fs_mount(const char *diskname)
 {
 	int i;
@@ -202,8 +203,8 @@ int fs_delete(const char *filename)
 	int first,second;
 	while (current != FAT_EOC){
 		///get the exact index of current chain in FAT
-		first = current / BLOCK_SIZE;
-		second = current % BLOCK_SIZE;
+		first = current / (BLOCK_SIZE/2);
+		second = current % (BLOCK_SIZE/2);
 		current = FAT->entries[first][second];
 		//need to free data block associated with this fat entry as well
 		FAT->entries[first][second] = 0;
@@ -342,7 +343,89 @@ int fs_write(int fd, void *buf, size_t count)
 }
 
 int fs_read(int fd, void *buf, size_t count)
-{
-	/* TODO: Phase 4 */
+{	
+	struct File_Desc file2read;
+	void* bounce[BLOCK_SIZE];
+	int i, bytes_read = 0, op_size, end = 0;
+	for(i = 0; i < numFilesOpen; i++){
+		if(openFiles[i].fd == fd){
+			file2read = openFiles[i];	
+			break;
+		}
+	}
+	//request fd not found
+	if(i == numFilesOpen)
+		return -1;
+	if(count > (file2read.file_size - file2read.offset))
+			return -1;//read will go out of bounds
+	//do the read
+	while(bytes_read != count){
+		uint16_t block = data_block_index(file2read.file_name, file2read.offset);
+		if(block == FAT_EOC)
+			break;
+		//case 1, offset not at beginning of a block
+		if((file2read.offset % 4096) != 0){
+			block_read((SB->root_index + 1 + block), bounce);
+			if((file2read.file_size - file2read.offset) < (count - file2read.offset)){//reaching end of file
+				op_size = file2read.file_size - file2read.offset;
+				end = 1;
+			}
+			else if(BLOCK_SIZE - file2read.offset > count)
+				op_size = count; // small operation
+			else
+				op_size = BLOCK_SIZE - file2read.offset;
+			memcpy(buf + bytes_read, bounce[file2read.offset % BLOCK_SIZE], op_size);
+			bytes_read += op_size;
+			file2read.offset += op_size;
+			if(end)
+				break;
+			continue; 
+		}
+		//case 2, reading whole block from beginning
+		else if(((count - bytes_read) >= BLOCK_SIZE) && ((file2read.file_size - file2read.offset) >= (count - file2read.offset))){
+			block_read((SB->root_index + 1 + block), buf + bytes_read);
+			op_size = BLOCK_SIZE;
+			bytes_read += op_size;
+			file2read.offset += op_size;
+			continue;
+		}
+		//case 3, reading from beginning but not whole block
+		else{
+			if((file2read.file_size - file2read.offset) < (count-file2read.offset))
+                                op_size = file2read.file_size - file2read.offset;//reaching end of file
+			else
+				op_size = count - bytes_read;
+			block_read((SB->root_index + 1 + block), bounce);
+			memcpy(buf + bytes_read, bounce, op_size);
+			bytes_read += op_size;
+			file2read.offset += op_size;
+			break;
+		}
+
+	}
+	return bytes_read;
 }
 
+uint16_t next_block(uint16_t current){
+	int blk, off;
+	blk = current / (BLOCK_SIZE/2);
+	off = current % (BLOCK_SIZE/2);
+	return FAT->entries[blk][off];
+}
+
+uint16_t data_block_index(char* filename, int offset){
+	int blocks_deep, i;
+	uint16_t block;
+	blocks_deep = offset / BLOCK_SIZE;
+	for(i = 0; i < FS_FILE_MAX_COUNT; i++){
+                if(!strcmp((char*)ROOT_DIR[i].file_name, filename))
+                        block = ROOT_DIR[i].first_block;
+			break;
+        }
+	while(blocks_deep){
+		block = next_block(block);
+		blocks_deep--;
+	}
+	return block;
+
+}
