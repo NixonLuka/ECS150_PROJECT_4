@@ -281,7 +281,7 @@ int fs_close(int fd)
         return -1;
 
     // Move all open files by 1 instead of equating elements to NULL - to avoid nullptr exceptions & reaches
-    for (int i = index; i < (numFilesOpen - 1); i++) {
+    for (int i = index; i < (numFilesOpen); i++) {
         openFiles[i] = openFiles[i + 1];  		// FIXME - check for overflow errors
     }
     numFilesOpen--;
