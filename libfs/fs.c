@@ -344,7 +344,7 @@ int fs_write(int fd, void *buf, size_t count)
 	struct root_entry* cur_file;
 	struct File_Desc file2write;
         void* bounce[BLOCK_SIZE];
-        unsigned int i, bytes_wrote = 0, op_size;
+        unsigned int i, bytes_wrote = 0, op_size, found=0;
 	uint16_t block;
         for(i = 0; i < numFilesOpen; i++){
                 if(openFiles[i].fd == fd){
@@ -355,11 +355,12 @@ int fs_write(int fd, void *buf, size_t count)
         for (i = 0; i < FS_FILE_MAX_COUNT; i++) {
             if (!strcmp((char*)ROOT_DIR[i].file_name, (char*)file2write.file_name)) {
                 cur_file = &ROOT_DIR[i];
+		found = 1;
                 break;
         }
     }
         //request fd not found
-        if(i == numFilesOpen  || fd <0 )
+        if(found ==0 ||  fd < 0 )
                 return -1;
 	
 	while(bytes_wrote != count){
@@ -414,17 +415,18 @@ int fs_read(int fd, void *buf, size_t count)
 {	
 	struct File_Desc file2read;
 	void* bounce[BLOCK_SIZE];
-	unsigned int i, bytes_read = 0, op_size, end = 0, orig_off;
+	unsigned int i, bytes_read = 0, op_size, end = 0, orig_off, found = 0;
 
 	uint16_t block;
 	for(i = 0; i < numFilesOpen; i++){
 		if(openFiles[i].fd == fd){
 			file2read = openFiles[i];	
+			found = 1;
 			break;
 		}
 	}
 	//request fd not found
-	if(i == numFilesOpen  || fd <0 )
+	if( found == 0  || fd <0 )
 		return -1;
 	if(count > (*file2read.file_size - file2read.offset))
 			return -1;//read will go out of bounds
