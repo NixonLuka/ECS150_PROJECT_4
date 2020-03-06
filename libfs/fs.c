@@ -77,7 +77,7 @@ int fs_mount(const char *diskname)
 	//create FAT
 	
 	FAT = malloc(sizeof(struct FS_FAT));
-	FAT->num_entries = (BLOCK_SIZE/2) * SB->FAT_size; 
+	FAT->num_entries = SB->num_blocks; 
 	FAT->entries = malloc(SB->FAT_size * sizeof(uint16_t*));
 	for(i = 0; i < SB->FAT_size; i++){
 		FAT->entries[i] = malloc((BLOCK_SIZE/2) * sizeof(uint16_t));
@@ -134,7 +134,7 @@ int fs_info(void)
 	int free = 0;
 	int i;
 	for(int j = 0; j < SB->FAT_size; j++){
-		for(i = 0; i < 2048; i++){
+		for(i = 0; i < FAT->num_entries; i++){
 			if(FAT->entries[j][i] == 0)
 				free++;
 		}
