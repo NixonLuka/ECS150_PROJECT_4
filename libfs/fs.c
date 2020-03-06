@@ -134,7 +134,7 @@ int fs_info(void)
 	int free = 0;
 	int i;
 	for(int j = 0; j < SB->FAT_size; j++){
-		for(i = 0; i < FAT->num_entries; i++){
+		for(i = 0; i < (FAT->num_entries / SB->FAT_size); i++){
 			if(FAT->entries[j][i] == 0)
 				free++;
 		}
@@ -379,7 +379,7 @@ int fs_write(int fd, void *buf, size_t count)
 				op_size = (BLOCK_SIZE - (file2write.offset % BLOCK_SIZE));
 			
 			block_read((SB->data_index + block), bounce);
-			memcpy(bounce[file2write.offset % BLOCK_SIZE], buf + bytes_wrote, op_size);
+			memcpy(bounce + (file2write.offset % BLOCK_SIZE), buf + bytes_wrote, op_size);
 			block_write((SB->data_index + block), bounce);
 			bytes_wrote += op_size;
 			file2write.offset += op_size;
@@ -415,7 +415,7 @@ int fs_read(int fd, void *buf, size_t count)
 {	
 	struct File_Desc file2read;
 	void* bounce[BLOCK_SIZE];
-	unsigned int i, bytes_read = 0, op_size, end = 0, orig_off, found = 0;
+	unsigned int i, bytes_read = 0, op_size, orig_off, found = 0, last_block;
 
 	uint16_t block;
 	for(i = 0; i < numFilesOpen; i++){
@@ -428,27 +428,59 @@ int fs_read(int fd, void *buf, size_t count)
 	//request fd not found
 	if( found == 0  || fd <0 )
 		return -1;
-	if(count > (*file2read.file_size - file2read.offset))
-			return -1;//read will go out of bounds
+	//if(count > (*file2read.file_size - file2read.offset))
+	//		return -1;//read will go out of bounds
 	orig_off = file2read.offset;
+	last_block = *file2read.file_size / BLOCK_SIZE;
 	//do the read
 	while(bytes_read != count){
 		block = data_block_index(file2read.file_name, file2read.offset);
 		if(block == FAT_EOC)
 			break;
-		//case 1, offset not at beginning of a block
-		if((file2read.offset % BLOCK_SIZE) != 0){
+		if((file2read.offset / BLOCK_SIZE) == last_block){
 			block_read((SB->data_index + block), bounce);
-			if((*file2read.file_size - file2read.offset) < ((count+orig_off) - file2read.offset)){//reaching end of file
-				op_size = *file2read.file_size - file2read.offset;
-				end = 1;
-			}
-			else if((BLOCK_SIZE - (file2read.offset % BLOCK_SIZE)) > count)
-				op_size = count; // small operation
+			op_size = *file2read.file_size - file2read.offset;
+			memcpy(buf + bytes_read, bounce + (file2read.offset % BLOCK_SIZE), op_size);
+			bytes_read += op_size;
+                        file2read.offset += op_size;
+			break;
+		}
+		else if((file2read.offset % BLOCK_SIZE == 0) && ((count - bytes_read) >= BLOCK_SIZE)){
+			block_read((SB->data_index + block), buf + bytes_read);
+                        op_size = BLOCK_SIZE;
+                        bytes_read += op_size;
+                        file2read.offset += op_size;
+                        continue;
+
+		}
+		else{
+			//in same block we end counting
+			block_read((SB->data_index + block), bounce);
+			if((file2read.offset / BLOCK_SIZE) == ((count + orig_off)/BLOCK_SIZE))
+				op_size = (count + orig_off) - file2read.offset;
 			else
 				op_size = BLOCK_SIZE - (file2read.offset % BLOCK_SIZE);
 			
-			memcpy(buf + bytes_read, bounce[file2read.offset % BLOCK_SIZE], op_size);
+			memcpy(buf + bytes_read, bounce + (file2read.offset % BLOCK_SIZE), op_size);
+			bytes_read += op_size;
+                        file2read.offset += op_size;
+			continue;
+		}
+	}
+		//case 1, offset not at beginning of a block
+		/*if((file2read.offset % BLOCK_SIZE) != 0){
+			block_read((SB->data_index + block), bounce);
+			if((BLOCK_SIZE - (file2read.offset % BLOCK_SIZE)) > count){
+				op_size = count; // small operation
+				if((*file2read.file_size - file2read.offset) < ((count+orig_off) - file2read.offset)){//reaching end of file
+                                	op_size = *file2read.file_size - file2read.offset;
+                                	end = 1;
+                        	}
+			}
+			else
+				op_size = BLOCK_SIZE - (file2read.offset % BLOCK_SIZE);
+			
+			memcpy(buf + bytes_read, bounce + (file2read.offset % BLOCK_SIZE), op_size);
 			bytes_read += op_size;
 			file2read.offset += op_size;
 			if(end)
@@ -456,7 +488,7 @@ int fs_read(int fd, void *buf, size_t count)
 			continue; 
 		}
 		//case 2, reading from beginning but not whole block
-		else if((count-bytes_read) < BLOCK_SIZE){
+		else if(((count-bytes_read) < BLOCK_SIZE)){
 			if((*file2read.file_size - file2read.offset) < ((count+orig_off)-file2read.offset))
                                 op_size = *file2read.file_size - file2read.offset;//reaching end of file
 			else
@@ -476,7 +508,7 @@ int fs_read(int fd, void *buf, size_t count)
                         continue;
                 }
 
-	}
+	}*/
 	return bytes_read;
 }
 
